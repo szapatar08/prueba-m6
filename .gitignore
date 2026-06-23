@@ -1,0 +1,49 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Docker
+docker-compose.override.yml
+
+## Logs
+*.log
+logs/
+
+## Coverage
+coverage/
+*.coverage
+*.coveragexml
+
+## Node (frontend)
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
