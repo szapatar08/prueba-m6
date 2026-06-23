@@ -1,0 +1,53 @@
+# Gentleman Guardian Angel Configuration
+# https://github.com/your-org/gga
+
+# AI Provider (required)
+# Options:
+# claude, gemini, codex, opencode, ollama:<model>, lmstudio[:model], github:<model>
+
+PROVIDER="opencode"
+
+
+# File patterns to include in review (comma-separated)
+# Project:
+# - ASP.NET Core backend
+# - React frontend
+# - Configuration files
+#
+FILE_PATTERNS="*.cs,*.csproj,*.sln,*.ts,*.tsx,*.js,*.jsx,*.json,*.yml,*.yaml,Dockerfile"
+
+
+# File patterns to exclude from review
+#
+# Exclude:
+# - Generated files
+# - Dependencies
+# - Build outputs
+# - Tests (review separately)
+# - Database migrations generated code
+#
+EXCLUDE_PATTERNS="node_modules/**,bin/**,obj/**,dist/**,build/**,.git/**,*.dll,*.exe,*.test.cs,*.Tests.cs,*.spec.ts,*.test.ts,*.spec.tsx,*.test.tsx,*.Designer.cs,*.g.cs"
+
+
+# File containing code review rules
+RULES_FILE="AGENTS.md"
+
+
+# Strict mode:
+# Fail when AI cannot determine if code complies with:
+# - Clean Architecture
+# - Modular Monolith boundaries
+# - Security rules
+# - Multi-tenant isolation
+#
+STRICT_MODE="true"
+
+
+# Timeout in seconds for AI provider response
+# Increased because backend analysis can be larger
+TIMEOUT="600"
+
+
+# Base branch for PR reviews
+# Empty = auto detect
+PR_BASE_BRANCH="main"
