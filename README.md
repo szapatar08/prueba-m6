@@ -79,9 +79,9 @@ frontend/                          # React 19 + TypeScript SPA
 │   └── context/                   # AuthProvider (React Context)
 └── vite.config.ts                 # Tailwind v4, API proxy
 
-docker/
-├── docker-compose.yml             # PostgreSQL 16, Redis 7, MinIO
-└── Dockerfile                     # Multi-stage .NET build
+docker-compose.yml                 # Root orchestration (5 services)
+docker/Dockerfile                  # Multi-stage .NET API build
+frontend/Dockerfile                # Node 20 Vite dev container
 ```
 
 ---
@@ -96,10 +96,39 @@ docker/
 
 ## Quick Start
 
-### 1. Start infrastructure
+### Option A: Docker (recommended)
+
+Start the entire platform with a single command:
 
 ```bash
-docker-compose -f docker/docker-compose.yml up -d
+docker compose up
+```
+
+This starts all 5 services on an internal bridge network:
+- **PostgreSQL 16** (internal only)
+- **Redis 7** (internal only)
+- **MinIO** (internal only)
+- **API** (ASP.NET Core, internal only)
+- **Frontend** (Vite dev server) at `http://localhost:3000`
+
+Only port 3000 is exposed to the host. Hot reload is enabled — edit frontend files and see changes instantly.
+
+#### Environment Variables
+
+Create a `.env` file in the project root for secrets:
+
+```bash
+JWT_SECRET_KEY=YourSuperSecretKeyThatIsAtLeast32CharactersLong!
+```
+
+Other credentials have development defaults (see `docker-compose.yml`).
+
+### Option B: Local Development
+
+#### 1. Start infrastructure
+
+```bash
+docker compose up -d postgres redis minio
 ```
 
 This starts:
@@ -107,7 +136,7 @@ This starts:
 - **Redis 7** on port 6379
 - **MinIO** on ports 9000 (API) / 9001 (Console)
 
-### 2. Build and run the API
+#### 2. Build and run the API
 
 ```bash
 dotnet restore
@@ -120,7 +149,7 @@ The API will be available at:
 - **Health Check**: `https://localhost:5001/health`
 - **Hangfire Dashboard**: `https://localhost:5001/hangfire`
 
-### 3. Run the frontend
+#### 3. Run the frontend
 
 ```bash
 cd frontend
@@ -130,7 +159,7 @@ npm run dev
 
 Frontend available at `http://localhost:5173`.
 
-### 4. Run tests
+#### 4. Run tests
 
 ```bash
 # All tests
