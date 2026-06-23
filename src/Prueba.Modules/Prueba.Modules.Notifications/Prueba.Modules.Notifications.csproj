@@ -9,6 +9,17 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Prueba.Application\Prueba.Application.csproj" />
     <ProjectReference Include="..\..\Prueba.Domain\Prueba.Domain.csproj" />
+    <ProjectReference Include="..\..\Prueba.Infrastructure\Prueba.Infrastructure.csproj" />
+    <ProjectReference Include="..\Prueba.Modules.Booking\Prueba.Modules.Booking.csproj" />
+    <ProjectReference Include="..\Prueba.Modules.Identity\Prueba.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Prueba.Modules.KYC\Prueba.Modules.KYC.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
+    <PackageReference Include="Hangfire.Core" Version="1.8.20" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
 </Project>

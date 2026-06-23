@@ -1,3 +1,5 @@
+using System.Data;
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Prueba.Application.Interfaces;
@@ -28,19 +30,40 @@ public class AppDbContext : DbContext, IUnitOfWork
             modelBuilder.HasDefaultSchema(_currentTenant.SchemaName);
         }
 
+        // Apply all IEntityTypeConfiguration<T> from loaded assemblies (modules)
+        ApplyConfigurationsFromLoadedAssemblies(modelBuilder);
+
         // Apply global query filter for tenant isolation on all BaseEntity types
+        var tenantId = _currentTenant.TenantId;
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
             {
                 var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
                 var tenantIdProperty = System.Linq.Expressions.Expression.Property(parameter, nameof(BaseEntity.TenantId));
-                var tenantIdValue = System.Linq.Expressions.Expression.Constant(_currentTenant.TenantId);
-                var body = System.Linq.Expressions.Expression.Equal(tenantIdProperty, tenantIdValue);
+                var tenantIdConstant = System.Linq.Expressions.Expression.Constant(tenantId.HasValue ? tenantId.Value : Guid.Empty);
+                var body = System.Linq.Expressions.Expression.Equal(tenantIdProperty, tenantIdConstant);
 
                 modelBuilder.Entity(entityType.ClrType)
                     .HasQueryFilter(System.Linq.Expressions.Expression.Lambda(body, parameter));
             }
+        }
+    }
+
+    private static void ApplyConfigurationsFromLoadedAssemblies(ModelBuilder modelBuilder)
+    {
+        var applyConfigurationsMethod = typeof(ModelBuilder)
+            .GetMethod(nameof(ModelBuilder.ApplyConfigurationsFromAssembly));
+
+        if (applyConfigurationsMethod is null) return;
+
+        // Scan loaded assemblies that start with "Prueba.Modules"
+        var moduleAssemblies = AppDomain.CurrentDomain.GetAssemblies()
+            .Where(a => a.GetName().Name?.StartsWith("Prueba.Modules") == true);
+
+        foreach (var assembly in moduleAssemblies)
+        {
+            modelBuilder.ApplyConfigurationsFromAssembly(assembly);
         }
     }
 
@@ -59,6 +82,11 @@ public class AppDbContext : DbContext, IUnitOfWork
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
         _currentTransaction = await Database.BeginTransactionAsync(cancellationToken);
+    }
+
+    public async Task BeginTransactionAsync(IsolationLevel isolationLevel, CancellationToken cancellationToken = default)
+    {
+        _currentTransaction = await Database.BeginTransactionAsync(isolationLevel, cancellationToken);
     }
 
     public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)

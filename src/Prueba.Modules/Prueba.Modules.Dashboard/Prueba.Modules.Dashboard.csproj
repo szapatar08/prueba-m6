@@ -9,6 +9,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Prueba.Application\Prueba.Application.csproj" />
     <ProjectReference Include="..\..\Prueba.Domain\Prueba.Domain.csproj" />
+    <ProjectReference Include="..\Prueba.Modules.Booking\Prueba.Modules.Booking.csproj" />
+    <ProjectReference Include="..\Prueba.Modules.Properties\Prueba.Modules.Properties.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.0" />
   </ItemGroup>
 
 </Project>
