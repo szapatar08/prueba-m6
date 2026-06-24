@@ -113,6 +113,29 @@ This starts all 5 services on an internal bridge network:
 
 Only port 3000 is exposed to the host. Hot reload is enabled — edit frontend files and see changes instantly.
 
+### Seed Data (pre-loaded)
+
+The application auto-seeds data on first startup. Use these credentials to log in:
+
+| Role | Email | Password |
+|------|-------|----------|
+| **Admin** | admin@prueba.com | Admin123! |
+| **Owner** | owner@prueba.com | Owner123! |
+| **Guest** | guest@prueba.com | Guest123! |
+
+**Seeded data includes:**
+- 3 users (admin, owner, guest) with assigned roles
+- 5 properties with availability for the next 30 days
+- KYC validation approved for the guest user
+- 7 notification templates (booking, KYC, reminders)
+
+**Login as Admin:** Go to `http://localhost:3000/login` and use `admin@prueba.com` / `Admin123!`
+
+**Test the booking flow:**
+1. Login as Guest → Browse properties → Make a booking
+2. Login as Owner → Confirm the booking
+3. Check Dashboard for revenue/occupancy metrics
+
 #### Environment Variables
 
 Create a `.env` file in the project root for secrets:

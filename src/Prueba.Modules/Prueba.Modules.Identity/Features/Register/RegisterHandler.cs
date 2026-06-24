@@ -18,7 +18,8 @@ public class RegisterHandler
 
     public async Task<Result<RegisterResponse>> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
-        var tenantId = _currentTenant.TenantId!.Value;
+        // Use default tenant if no tenant context (registration without JWT)
+        var tenantId = _currentTenant.TenantId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
 
         // Check for duplicate email within the tenant
         // Use IgnoreQueryFilters for internal lookups — tenant scoping is enforced manually

@@ -1,6 +1,7 @@
 using System.Data;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Storage;
 using Prueba.Application.Interfaces;
 using Prueba.Domain.Entities;
@@ -16,6 +17,15 @@ public class AppDbContext : DbContext, IUnitOfWork
         : base(options)
     {
         _currentTenant = currentTenant;
+    }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+
+        // Suppress PendingModelChangesWarning because we use dynamic tenant ID in query filters
+        optionsBuilder.ConfigureWarnings(warnings =>
+            warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
     }
 
     public DbSet<TestEntity> TestEntities => Set<TestEntity>();

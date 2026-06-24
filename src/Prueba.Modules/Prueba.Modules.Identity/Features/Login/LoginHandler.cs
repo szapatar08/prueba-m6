@@ -20,7 +20,8 @@ public class LoginHandler
 
     public async Task<Result<LoginResponse>> Handle(LoginCommand command, CancellationToken cancellationToken)
     {
-        var tenantId = _currentTenant.TenantId!.Value;
+        // Use default tenant if no tenant context (login without JWT)
+        var tenantId = _currentTenant.TenantId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
 
         // Find user by email — use IgnoreQueryFilters and manually filter by tenant
         var normalizedEmail = command.Email.Trim().ToLowerInvariant();

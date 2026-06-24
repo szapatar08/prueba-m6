@@ -14,6 +14,16 @@ using Prueba.Modules.Notifications.Handlers;
 using Prueba.Modules.Notifications.Jobs;
 using Prueba.Modules.Notifications.Services;
 
+// Force load module assemblies BEFORE builder
+_ = typeof(Prueba.Modules.Identity.Entities.User).Assembly;
+_ = typeof(Prueba.Modules.Properties.Entities.Property).Assembly;
+_ = typeof(Prueba.Modules.Booking.Entities.BookingEntity).Assembly;
+_ = typeof(Prueba.Modules.Wishlist.Entities.WishlistItem).Assembly;
+_ = typeof(Prueba.Modules.KYC.Entities.KycValidation).Assembly;
+_ = typeof(Prueba.Modules.Notifications.Entities.Notification).Assembly;
+_ = typeof(Prueba.Modules.Dashboard.Features.GetOccupancyRate.GetOccupancyRateQuery).Assembly;
+_ = typeof(Prueba.Modules.Reports.Features.GenerateReport.GenerateReportQuery).Assembly;
+
 var builder = WebApplication.CreateBuilder(args);
 var isTesting = builder.Environment.IsEnvironment("Testing");
 
@@ -190,13 +200,12 @@ else
 
 var app = builder.Build();
 
-// Seed notification templates on startup (skip in Testing to avoid DB timing issues)
+// Apply migrations and seed data on startup (skip in Testing)
 if (!app.Environment.IsEnvironment("Testing"))
 {
     using (var scope = app.Services.CreateScope())
     {
-        var seedJob = scope.ServiceProvider.GetRequiredService<SeedNotificationTemplatesJob>();
-        await seedJob.ExecuteAsync(CancellationToken.None);
+        await Prueba.Api.SeedData.InitializeAsync(scope.ServiceProvider);
     }
 }
 
