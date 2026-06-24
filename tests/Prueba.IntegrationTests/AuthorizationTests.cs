@@ -303,7 +303,7 @@ public class AuthorizationTests : IAsyncLifetime
 
         // Approve KYC for tenant A guest
         var kycA = KycValidation.Create(_guestA, "passport", _tenantA);
-        kycA.Approve("Guest A", "DOC-A", new DateTime(1990, 1, 1));
+        kycA.Approve("Guest A", "DOC-A", new DateTime(1990, 1, 1), 95.0);
         context.Add(kycA);
 
         // Tenant B users
@@ -335,7 +335,7 @@ public class AuthorizationTests : IAsyncLifetime
 
         // Approve KYC for tenant B guest
         var kycB = KycValidation.Create(_guestB, "passport", _tenantB);
-        kycB.Approve("Guest B", "DOC-B", new DateTime(1995, 5, 5));
+        kycB.Approve("Guest B", "DOC-B", new DateTime(1995, 5, 5), 95.0);
         context.Add(kycB);
 
         await context.SaveChangesAsync();

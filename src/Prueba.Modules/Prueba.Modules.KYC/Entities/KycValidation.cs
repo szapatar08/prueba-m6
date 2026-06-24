@@ -12,6 +12,8 @@ public class KycValidation : AggregateRoot
     public string? ExtractedDocumentNumber { get; private set; }
     public DateTime? ExtractedDateOfBirth { get; private set; }
     public DateTime? ProcessedAt { get; private set; }
+    public double? ConfidenceScore { get; private set; }
+    public string? ExtractionErrors { get; private set; }
 
     private KycValidation() { } // EF Core
 
@@ -41,7 +43,8 @@ public class KycValidation : AggregateRoot
     public void Approve(
         string extractedNames,
         string extractedDocumentNumber,
-        DateTime extractedDateOfBirth)
+        DateTime extractedDateOfBirth,
+        double confidenceScore)
     {
         if (Status != KycStatus.Pending)
             throw new InvalidOperationException(
@@ -51,6 +54,7 @@ public class KycValidation : AggregateRoot
         ExtractedNames = extractedNames;
         ExtractedDocumentNumber = extractedDocumentNumber;
         ExtractedDateOfBirth = extractedDateOfBirth;
+        ConfidenceScore = confidenceScore;
         ProcessedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
 
@@ -64,6 +68,7 @@ public class KycValidation : AggregateRoot
                 $"Cannot reject validation in {Status} status. Only Pending validations can be rejected.");
 
         Status = KycStatus.Rejected;
+        ExtractionErrors = reason;
         ProcessedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
 

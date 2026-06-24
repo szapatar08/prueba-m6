@@ -183,7 +183,7 @@ public class DoubleBookingTests : IAsyncLifetime
             context.Add(guest2UserRole);
 
             var kyc2 = KycValidation.Create(guest2Id, "passport", _tenantId);
-            kyc2.Approve("Guest2 User", "DOC456", new DateTime(1992, 5, 15));
+            kyc2.Approve("Guest2 User", "DOC456", new DateTime(1992, 5, 15), 95.0);
             context.Add(kyc2);
             await context.SaveChangesAsync();
         }
@@ -260,7 +260,7 @@ public class DoubleBookingTests : IAsyncLifetime
 
         // Approve KYC for guest
         var kyc = KycValidation.Create(_guestId, "passport", _tenantId);
-        kyc.Approve("Guest User", "DOC123", new DateTime(1990, 1, 1));
+        kyc.Approve("Guest User", "DOC123", new DateTime(1990, 1, 1), 95.0);
         context.Add(kyc);
 
         await SeedPropertyAsync(_propertyId);

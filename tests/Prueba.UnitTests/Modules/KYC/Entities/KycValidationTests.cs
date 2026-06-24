@@ -90,7 +90,7 @@ public class KycValidationTests
         var validation = KycValidation.Create(_userId, DocumentType, _tenantId);
 
         // Act
-        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15));
+        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15), 95.0);
 
         // Assert
         validation.Status.Should().Be(KycStatus.Approved);
@@ -108,7 +108,7 @@ public class KycValidationTests
         var validation = KycValidation.Create(_userId, DocumentType, _tenantId);
 
         // Act
-        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15));
+        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15), 95.0);
 
         // Assert
         validation.DomainEvents.Should().HaveCount(1);
@@ -121,10 +121,10 @@ public class KycValidationTests
     {
         // Arrange
         var validation = KycValidation.Create(_userId, DocumentType, _tenantId);
-        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15));
+        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15), 95.0);
 
         // Act
-        var act = () => validation.Approve("Jane Doe", "DOC-87654321", new DateTime(1995, 5, 20));
+        var act = () => validation.Approve("Jane Doe", "DOC-87654321", new DateTime(1995, 5, 20), 90.0);
 
         // Assert
         act.Should().Throw<InvalidOperationException>()
@@ -181,7 +181,7 @@ public class KycValidationTests
     {
         // Arrange
         var validation = KycValidation.Create(_userId, DocumentType, _tenantId);
-        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15));
+        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15), 95.0);
 
         // Act
         var isApproved = validation.IsApproved;
@@ -215,5 +215,51 @@ public class KycValidationTests
 
         // Assert
         isApproved.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Approve_ShouldPersistConfidenceScore()
+    {
+        // Arrange
+        var validation = KycValidation.Create(_userId, DocumentType, _tenantId);
+
+        // Act
+        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15), 89.5);
+
+        // Assert
+        validation.ConfidenceScore.Should().Be(89.5);
+    }
+
+    [Fact]
+    public void Reject_ShouldPersistExtractionErrors()
+    {
+        // Arrange
+        var validation = KycValidation.Create(_userId, DocumentType, _tenantId);
+
+        // Act
+        validation.Reject("Low confidence: 58.75%");
+
+        // Assert
+        validation.ExtractionErrors.Should().Be("Low confidence: 58.75%");
+    }
+
+    [Fact]
+    public void Create_ShouldHaveNullConfidenceScore()
+    {
+        // Act
+        var validation = KycValidation.Create(_userId, DocumentType, _tenantId);
+
+        // Assert
+        validation.ConfidenceScore.Should().BeNull();
+    }
+
+    [Fact]
+    public void Create_ShouldHaveNullExtractionErrors()
+    {
+        // Act
+        var validation = KycValidation.Create(_userId, DocumentType, _tenantId);
+
+        // Assert
+        validation.ExtractionErrors.Should().BeNull();
     }
 }

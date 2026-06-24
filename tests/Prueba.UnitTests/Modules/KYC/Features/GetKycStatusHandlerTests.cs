@@ -73,7 +73,7 @@ public class GetKycStatusHandlerTests : IDisposable
     {
         // Arrange
         var validation = KycValidation.Create(_userId, "image/jpeg", _tenantId);
-        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15));
+        validation.Approve("John Doe", "DOC-12345678", new DateTime(1990, 1, 15), 95.0);
         _repository.Add(validation);
         await _repository.SaveChangesAsync();
 

@@ -34,6 +34,8 @@ public class GetKycStatusHandler
                 null,
                 null,
                 null,
+                null,
+                null,
                 null));
         }
 
@@ -43,7 +45,9 @@ public class GetKycStatusHandler
             validation.DocumentType,
             validation.ExtractedNames,
             validation.ExtractedDocumentNumber,
-            validation.ProcessedAt));
+            validation.ProcessedAt,
+            validation.ConfidenceScore,
+            validation.ExtractionErrors));
     }
 }
 
@@ -53,4 +57,6 @@ public record KycStatusResponse(
     string? DocumentType,
     string? ExtractedNames,
     string? ExtractedDocumentNumber,
-    DateTime? ProcessedAt);
+    DateTime? ProcessedAt,
+    double? ConfidenceScore,
+    string? ExtractionErrors);

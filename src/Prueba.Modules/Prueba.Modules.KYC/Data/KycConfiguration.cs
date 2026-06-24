@@ -29,6 +29,11 @@ public class KycConfiguration : IEntityTypeConfiguration<KycValidation>, IEntity
         builder.Property(k => k.ExtractedDocumentNumber)
             .HasMaxLength(100);
 
+        builder.Property(k => k.ConfidenceScore);
+
+        builder.Property(k => k.ExtractionErrors)
+            .HasMaxLength(2000);
+
         // Indexes for common queries
         builder.HasIndex(k => k.UserId);
         builder.HasIndex(k => k.TenantId);

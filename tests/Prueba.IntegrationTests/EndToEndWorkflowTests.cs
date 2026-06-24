@@ -5,11 +5,14 @@ using System.Text.Json;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Prueba.Application.Interfaces;
 using Prueba.Infrastructure.Data;
 using Prueba.Modules.Booking.Entities;
 using Prueba.Modules.Identity.Entities;
 using Prueba.Modules.KYC.Entities;
 using Prueba.Modules.Properties.Entities;
+using Prueba.Modules.Notifications.Entities;
+using Prueba.Modules.Notifications.Services;
 using Prueba.Modules.Wishlist.Entities;
 
 namespace Prueba.IntegrationTests;
@@ -36,6 +39,7 @@ public class EndToEndWorkflowTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await ClearDatabaseAsync();
+        await SeedNotificationTemplatesAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -51,9 +55,56 @@ public class EndToEndWorkflowTests : IAsyncLifetime
         await context.Set<PropertyImage>().IgnoreQueryFilters().ExecuteDeleteAsync();
         await context.Set<Availability>().IgnoreQueryFilters().ExecuteDeleteAsync();
         await context.Set<Property>().IgnoreQueryFilters().ExecuteDeleteAsync();
+        await context.Set<Notification>().IgnoreQueryFilters().ExecuteDeleteAsync();
+        await context.Set<NotificationTemplate>().IgnoreQueryFilters().ExecuteDeleteAsync();
         await context.Set<UserRole>().IgnoreQueryFilters().ExecuteDeleteAsync();
         await context.Set<Role>().IgnoreQueryFilters().ExecuteDeleteAsync();
         await context.Set<User>().IgnoreQueryFilters().ExecuteDeleteAsync();
+
+        // Clear captured emails
+        var emailService = scope.ServiceProvider.GetRequiredService<IEmailService>() as NoOpEmailService;
+        emailService?.Clear();
+    }
+
+    private async Task SeedNotificationTemplatesAsync()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var templates = new[]
+        {
+            NotificationTemplate.Create(TemplateTypes.BookingCreated,
+                "New Booking - {{PropertyName}}",
+                "<h1>Booking Created</h1><p>Hello {{GuestName}}, your booking at {{PropertyName}} from {{StartDate}} to {{EndDate}} has been created.</p>",
+                _tenantId),
+            NotificationTemplate.Create(TemplateTypes.BookingConfirmed,
+                "Booking Confirmed - {{PropertyName}}",
+                "<h1>Booking Confirmed</h1><p>Hello {{GuestName}}, your booking at {{PropertyName}} from {{StartDate}} to {{EndDate}} for ${{TotalPrice}} has been confirmed. Check-in at {{CheckInTime}}.</p>",
+                _tenantId),
+            NotificationTemplate.Create(TemplateTypes.BookingCancelled,
+                "Booking Cancelled - {{PropertyName}}",
+                "<h1>Booking Cancelled</h1><p>Hello {{GuestName}}, your booking at {{PropertyName}} has been cancelled. {{RefundInfo}}</p>",
+                _tenantId),
+            NotificationTemplate.Create(TemplateTypes.KycApproved,
+                "Identity Verification Approved",
+                "<h1>Approved</h1><p>Hello {{GuestName}}, your identity verification has been approved.</p>",
+                _tenantId),
+            NotificationTemplate.Create(TemplateTypes.KycRejected,
+                "Identity Verification Rejected",
+                "<h1>Rejected</h1><p>Hello {{GuestName}}, your identity verification has been rejected. {{RejectionReason}}</p>",
+                _tenantId),
+            NotificationTemplate.Create(TemplateTypes.ArrivalReminder,
+                "Check-in tomorrow - {{PropertyName}}",
+                "<h1>Arrival Reminder</h1><p>Hello {{GuestName}}, your check-in at {{PropertyName}} is tomorrow ({{StartDate}}). Check-in time: {{CheckInTime}}. Address: {{Address}}. {{Instructions}}</p>",
+                _tenantId),
+            NotificationTemplate.Create(TemplateTypes.DepartureReminder,
+                "Check-out today - {{PropertyName}}",
+                "<h1>Departure Reminder</h1><p>Hello {{GuestName}}, your check-out at {{PropertyName}} is today ({{EndDate}}). Check-out time: {{CheckOutTime}}. {{Instructions}}</p>",
+                _tenantId),
+        };
+
+        context.Set<NotificationTemplate>().AddRange(templates);
+        await context.SaveChangesAsync();
     }
 
     [Fact]
@@ -320,6 +371,70 @@ public class EndToEndWorkflowTests : IAsyncLifetime
         emptyWishlist.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task EmailFlow_RegisterBookConfirm_ShouldSendConfirmationEmail()
+    {
+        // =====================================================================
+        // STEP 1: Register Guest
+        // =====================================================================
+        var (guestJwt, guestId) = await RegisterAndLoginGuestAsync();
+
+        // =====================================================================
+        // STEP 2: Approve KYC for Guest
+        // =====================================================================
+        await ApproveKycForUserAsync(guestId);
+
+        // =====================================================================
+        // STEP 3: Create Owner + Property
+        // =====================================================================
+        var (ownerJwt, propertyId) = await CreateOwnerAndPropertyAsync();
+
+        // =====================================================================
+        // STEP 4: Create Booking (Guest)
+        // =====================================================================
+        _client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", guestJwt);
+
+        var bookingResponse = await _client.PostAsJsonAsync("/api/bookings", new
+        {
+            propertyId,
+            startDate = "2026-11-01",
+            endDate = "2026-11-05",
+            totalPrice = 600.00m
+        });
+        bookingResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var bookingBody = await bookingResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var bookingId = bookingBody.GetProperty("id").GetGuid();
+
+        // =====================================================================
+        // STEP 5: Verify BookingCreated email was sent
+        // =====================================================================
+        {
+            var emailSvc = _factory.Services.GetRequiredService<IEmailService>() as NoOpEmailService;
+            var createdEmail = emailSvc!.SentEmails.FirstOrDefault(e => e.Subject.Contains("Booking"));
+            createdEmail.To.Should().NotBeNullOrEmpty("because the BookingCreated handler should send an email");
+        }
+
+        // =====================================================================
+        // STEP 6: Confirm Booking (Owner)
+        // =====================================================================
+        _client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", ownerJwt);
+
+        var confirmResponse = await _client.PutAsync($"/api/bookings/{bookingId}/confirm", null);
+        confirmResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // =====================================================================
+        // STEP 7: Verify BookingConfirmed email was sent
+        // =====================================================================
+        {
+            var emailSvc = _factory.Services.GetRequiredService<IEmailService>() as NoOpEmailService;
+            var confirmedEmail = emailSvc!.SentEmails.FirstOrDefault(e => e.Subject.Contains("Confirmed"));
+            confirmedEmail.Subject.Should().Contain("Confirmed");
+            confirmedEmail.Body.Should().Contain("Confirmed");
+        }
+    }
+
     // === Helper Methods ===
 
     private async Task<(string Jwt, Guid UserId)> RegisterAndLoginGuestAsync()
@@ -426,7 +541,7 @@ public class EndToEndWorkflowTests : IAsyncLifetime
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var kyc = KycValidation.Create(userId, "passport", _tenantId);
-        kyc.Approve("Test User", "DOC123", new DateTime(1990, 1, 1));
+        kyc.Approve("Test User", "DOC123", new DateTime(1990, 1, 1), 95.0);
         context.Add(kyc);
         await context.SaveChangesAsync();
     }
@@ -444,12 +559,12 @@ public class EndToEndWorkflowTests : IAsyncLifetime
         {
             // Create a new approved KYC if the record wasn't found
             kyc = KycValidation.Create(userId, "passport", _tenantId);
-            kyc.Approve("Test User", "DOC123", new DateTime(1990, 1, 1));
+            kyc.Approve("Test User", "DOC123", new DateTime(1990, 1, 1), 95.0);
             context.Add(kyc);
         }
         else
         {
-            kyc.Approve("Test User", "DOC123", new DateTime(1990, 1, 1));
+            kyc.Approve("Test User", "DOC123", new DateTime(1990, 1, 1), 95.0);
         }
 
         await context.SaveChangesAsync();

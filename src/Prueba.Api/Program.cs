@@ -12,6 +12,7 @@ using Prueba.Infrastructure.Services;
 using Prueba.Modules.KYC.Jobs;
 using Prueba.Modules.Notifications.Handlers;
 using Prueba.Modules.Notifications.Jobs;
+using Prueba.Modules.Notifications.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var isTesting = builder.Environment.IsEnvironment("Testing");
@@ -37,6 +38,12 @@ builder.Services.AddScoped<IUnitOfWork>(sp =>
 
 // Generic repository
 builder.Services.AddScoped<IRepository, Repository>();
+
+// Memory cache for template compilation
+builder.Services.AddMemoryCache();
+
+// Email template renderer
+builder.Services.AddScoped<IEmailTemplateRenderer, HandlebarsTemplateRenderer>();
 
 // JWT token generator
 builder.Services.AddScoped<IJwtTokenGenerator, Prueba.Modules.Identity.Features.Login.JwtTokenGenerator>();
@@ -65,6 +72,13 @@ if (!isTesting)
     // Object storage service (skip in testing — replaced by NoOpObjectStorage)
     builder.Services.AddScoped<IObjectStorage, MinioStorageService>();
 
+    // OCR service (skip in testing — replaced by NoOpOcrService)
+    builder.Services.AddScoped<IOcrService, GoogleVisionOcrService>();
+    builder.Services.AddSingleton(sp =>
+    {
+        return Google.Cloud.Vision.V1.ImageAnnotatorClient.Create();
+    });
+
     // Email service (skip in testing — replaced by NoOpEmailService)
     builder.Services.AddScoped<IEmailService, MailKitEmailService>();
 }
@@ -79,6 +93,13 @@ builder.Services.AddScoped<BookingCancelledEventHandler>();
 builder.Services.AddScoped<KycCompletedEventHandler>();
 builder.Services.AddScoped<BookingCreatedEventHandler>();
 builder.Services.AddScoped<SendNotificationJob>();
+
+// Template seeding job
+builder.Services.AddScoped<SeedNotificationTemplatesJob>();
+
+// Reminder jobs
+builder.Services.AddScoped<SendArrivalRemindersJob>();
+builder.Services.AddScoped<SendDepartureRemindersJob>();
 
 if (!isTesting)
 {
@@ -169,6 +190,16 @@ else
 
 var app = builder.Build();
 
+// Seed notification templates on startup (skip in Testing to avoid DB timing issues)
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var seedJob = scope.ServiceProvider.GetRequiredService<SeedNotificationTemplatesJob>();
+        await seedJob.ExecuteAsync(CancellationToken.None);
+    }
+}
+
 // Middleware pipeline — order matters
 // Exception handling first to catch all downstream exceptions
 app.UseMiddleware<Prueba.Api.Middleware.ExceptionHandling>();
@@ -202,6 +233,17 @@ if (!isTesting)
         "kyc-cleanup",
         job => job.ExecuteAsync(CancellationToken.None),
         Cron.Daily);
+
+    // Reminder jobs — daily at 8:00 AM
+    RecurringJob.AddOrUpdate<SendArrivalRemindersJob>(
+        "send-arrival-reminders",
+        job => job.ExecuteAsync(CancellationToken.None),
+        "0 8 * * *");
+
+    RecurringJob.AddOrUpdate<SendDepartureRemindersJob>(
+        "send-departure-reminders",
+        job => job.ExecuteAsync(CancellationToken.None),
+        "0 8 * * *");
 }
 
 app.Run();

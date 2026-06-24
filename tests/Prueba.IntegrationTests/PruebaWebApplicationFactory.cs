@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Prueba.Application.Interfaces;
 using Prueba.Infrastructure.Data;
 using Prueba.Modules.KYC.Entities;
+using Prueba.Modules.Notifications.Services;
 
 namespace Prueba.IntegrationTests;
 
@@ -67,8 +68,13 @@ public class PruebaWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
 
             // Register test stubs for services not available in testing
             services.AddScoped<IObjectStorage, NoOpObjectStorage>();
-            services.AddScoped<IEmailService, NoOpEmailService>();
+            services.AddScoped<IOcrService, NoOpOcrService>();
+            services.AddSingleton<IEmailService, NoOpEmailService>();
             services.AddScoped<Hangfire.IBackgroundJobClient, NoOpBackgroundJobClient>();
+
+            // Register memory cache and template renderer for notification tests
+            services.AddMemoryCache();
+            services.AddScoped<IEmailTemplateRenderer, HandlebarsTemplateRenderer>();
         });
     }
 
@@ -215,12 +221,35 @@ public class NoOpObjectStorage : IObjectStorage
 }
 
 /// <summary>
-/// No-op email service stub for integration tests.
+/// Email service stub for integration tests that captures sent emails for assertions.
 /// </summary>
 public class NoOpEmailService : IEmailService
 {
+    public List<(string To, string Subject, string Body)> SentEmails { get; } = new();
+
     public Task SendEmailAsync(string to, string subject, string body, CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
+    {
+        SentEmails.Add((to, subject, body));
+        return Task.CompletedTask;
+    }
+
+    public void Clear() => SentEmails.Clear();
+}
+
+/// <summary>
+/// No-op OCR service stub for integration tests.
+/// Returns high-confidence mock data by default.
+/// </summary>
+public class NoOpOcrService : IOcrService
+{
+    public Task<OcrResult> ExtractDocumentDataAsync(Stream imageStream, CancellationToken ct)
+        => Task.FromResult(new OcrResult(
+            "Test",
+            "User",
+            "DOC123456",
+            new DateTime(1990, 1, 1),
+            0.95,
+            null));
 }
 
 /// <summary>

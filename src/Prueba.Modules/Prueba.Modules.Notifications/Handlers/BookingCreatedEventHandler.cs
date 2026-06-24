@@ -1,14 +1,28 @@
 using Prueba.Application.Interfaces;
+using Prueba.Modules.Booking.Entities;
+using Prueba.Modules.Identity.Entities;
+using Prueba.Modules.Notifications.Services;
+using Prueba.Modules.Properties.Entities;
 
 namespace Prueba.Modules.Notifications.Handlers;
 
 public class BookingCreatedEventHandler
 {
+    private readonly IRepository _repository;
+    private readonly ICurrentTenant _currentTenant;
     private readonly IEmailService _emailService;
+    private readonly IEmailTemplateRenderer _templateRenderer;
 
-    public BookingCreatedEventHandler(IEmailService emailService)
+    public BookingCreatedEventHandler(
+        IRepository repository,
+        ICurrentTenant currentTenant,
+        IEmailService emailService,
+        IEmailTemplateRenderer templateRenderer)
     {
+        _repository = repository;
+        _currentTenant = currentTenant;
         _emailService = emailService;
+        _templateRenderer = templateRenderer;
     }
 
     public async Task HandleAsync(
@@ -19,19 +33,28 @@ public class BookingCreatedEventHandler
         DateOnly endDate,
         CancellationToken cancellationToken = default)
     {
-        // Send confirmation email to guest
-        await _emailService.SendEmailAsync(
-            "guest@example.com", // In production, resolve from user entity
-            "Booking Created - Pending Confirmation",
-            $"""
-            <h1>Booking Created</h1>
-            <p>Your booking {bookingId} has been created and is pending confirmation.</p>
-            <ul>
-                <li>Check-in: {startDate:yyyy-MM-dd} at 2:00 PM</li>
-                <li>Check-out: {endDate:yyyy-MM-dd} at 12:00 PM</li>
-            </ul>
-            <p>You will receive another email once the owner confirms your booking.</p>
-            """,
-            cancellationToken);
+        // Resolve guest email from user entity (fixes hardcoded guest@example.com)
+        var guest = await _repository.GetByIdAsync<User>(guestId, cancellationToken)
+            ?? throw new InvalidOperationException($"Guest user {guestId} not found.");
+
+        // Load booking and property for template data
+        var booking = await _repository.GetByIdAsync<BookingEntity>(bookingId, cancellationToken)
+            ?? throw new InvalidOperationException($"Booking {bookingId} not found.");
+
+        var property = await _repository.GetByIdAsync<Property>(propertyId, cancellationToken);
+
+        // Render template and send email
+        var templateData = new
+        {
+            GuestName = $"{guest.FirstName} {guest.LastName}",
+            PropertyName = property?.Name ?? "Your property",
+            StartDate = startDate.ToString("yyyy-MM-dd"),
+            EndDate = endDate.ToString("yyyy-MM-dd"),
+            CheckInTime = booking.CheckInTime.ToString("h:mm tt"),
+        };
+
+        var (subject, body) = _templateRenderer.Render(TemplateTypes.BookingCreated, templateData);
+
+        await _emailService.SendEmailAsync(guest.Email, subject, body, cancellationToken);
     }
 }

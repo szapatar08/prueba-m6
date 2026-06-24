@@ -279,7 +279,7 @@ public class KycWorkflowTests : IAsyncLifetime
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
         var kyc = KycValidation.Create(_guestId, "passport", _tenantId);
-        kyc.Approve("Test User", "DOC123456", new DateTime(1990, 1, 1));
+        kyc.Approve("Test User", "DOC123456", new DateTime(1990, 1, 1), 95.0);
 
         context.Add(kyc);
         await context.SaveChangesAsync();
